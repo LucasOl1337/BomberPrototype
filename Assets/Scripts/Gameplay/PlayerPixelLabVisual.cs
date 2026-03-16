@@ -1,5 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Bomber.Gameplay
 {
@@ -28,22 +31,74 @@ namespace Bomber.Gameplay
         private Transform visualTransform;
         private MeshRenderer visualRenderer;
         private string currentDirection;
+        private bool refreshQueued;
         private const string VisualObjectName = "PlayerPixelLabVisualQuad";
+        private static Mesh quadMesh;
 
         private void Start()
         {
-            BuildOrRefreshVisual();
+            QueueRefresh();
         }
 
         private void OnEnable()
         {
-            BuildOrRefreshVisual();
+            QueueRefresh();
+        }
+
+        private void OnDisable()
+        {
+#if UNITY_EDITOR
+            EditorApplication.delayCall -= RefreshFromEditor;
+#endif
+            refreshQueued = false;
         }
 
         private void OnValidate()
         {
+            QueueRefresh();
+        }
+
+        private void QueueRefresh()
+        {
+            if (refreshQueued)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                refreshQueued = true;
+                BuildOrRefreshVisual();
+                refreshQueued = false;
+                return;
+            }
+
+#if UNITY_EDITOR
+            if (!isActiveAndEnabled)
+            {
+                return;
+            }
+
+            refreshQueued = true;
+            EditorApplication.delayCall -= RefreshFromEditor;
+            EditorApplication.delayCall += RefreshFromEditor;
+#endif
+        }
+
+#if UNITY_EDITOR
+        private void RefreshFromEditor()
+        {
+            EditorApplication.delayCall -= RefreshFromEditor;
+            refreshQueued = false;
+
+            if (this == null || Application.isPlaying || !isActiveAndEnabled)
+            {
+                return;
+            }
+
             BuildOrRefreshVisual();
         }
+#endif
 
         private void BuildOrRefreshVisual()
         {
@@ -90,18 +145,14 @@ namespace Bomber.Gameplay
 
             if (visualTransform == null)
             {
-                GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                GameObject quad = new GameObject(VisualObjectName);
                 quad.name = VisualObjectName;
                 quad.transform.SetParent(transform, false);
 
-                Collider quadCollider = quad.GetComponent<Collider>();
-                if (quadCollider != null)
-                {
-                    DestroyImmediate(quadCollider);
-                }
-
                 visualTransform = quad.transform;
-                visualRenderer = quad.GetComponent<MeshRenderer>();
+                MeshFilter meshFilter = quad.AddComponent<MeshFilter>();
+                meshFilter.sharedMesh = GetQuadMesh();
+                visualRenderer = quad.AddComponent<MeshRenderer>();
             }
 
             visualTransform.localPosition = visualOffset;
@@ -127,6 +178,36 @@ namespace Bomber.Gameplay
 
             visualRenderer.sharedMaterial = material;
             currentDirection = direction;
+        }
+
+        private static Mesh GetQuadMesh()
+        {
+            if (quadMesh != null)
+            {
+                return quadMesh;
+            }
+
+            quadMesh = new Mesh
+            {
+                name = "PlayerPixelLabVisualQuadMesh",
+                vertices = new[]
+                {
+                    new Vector3(-0.5f, -0.5f, 0f),
+                    new Vector3(0.5f, -0.5f, 0f),
+                    new Vector3(-0.5f, 0.5f, 0f),
+                    new Vector3(0.5f, 0.5f, 0f)
+                },
+                uv = new[]
+                {
+                    new Vector2(0f, 0f),
+                    new Vector2(1f, 0f),
+                    new Vector2(0f, 1f),
+                    new Vector2(1f, 1f)
+                },
+                triangles = new[] { 0, 2, 1, 2, 3, 1 }
+            };
+            quadMesh.RecalculateNormals();
+            return quadMesh;
         }
 
         private static string GetDirectionName(Vector3 forward)

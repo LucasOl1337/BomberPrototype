@@ -11,9 +11,12 @@ namespace Bomber.Gameplay
         private Transform target;
         private Quaternion fixedRotation;
 
-        public void Initialize(Transform followTarget)
+        public void Initialize(Transform followTarget, Vector3 cameraOffset, float lerpSpeed, Vector3 cameraEulerAngles)
         {
             target = followTarget;
+            offset = cameraOffset;
+            followLerp = lerpSpeed;
+            fixedEulerAngles = cameraEulerAngles;
             fixedRotation = Quaternion.Euler(fixedEulerAngles);
             transform.rotation = fixedRotation;
         }

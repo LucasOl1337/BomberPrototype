@@ -31,8 +31,18 @@ namespace Bomber.Gameplay
         public event CrateDestroyedHandler CrateDestroyed;
         public event WallDestroyedHandler WallDestroyed;
 
+        public void Configure(int arenaWidth, int arenaHeight, float arenaCellSize, int seed, float arenaCrateFill)
+        {
+            width = Mathf.Max(5, arenaWidth | 1);
+            height = Mathf.Max(5, arenaHeight | 1);
+            cellSize = Mathf.Max(0.5f, arenaCellSize);
+            randomSeed = seed;
+            crateFill = Mathf.Clamp01(arenaCrateFill);
+        }
+
         public void Generate()
         {
+            ClearGeneratedContent();
             Random.InitState(randomSeed);
 
             BuildFloor();
@@ -99,7 +109,7 @@ namespace Bomber.Gameplay
             crateObjects.Remove(cell);
             crates.Remove(cell);
             Vector3 worldPosition = crate.transform.position;
-            Destroy(crate);
+            DestroyObject(crate);
             if (CrateDestroyed != null)
             {
                 CrateDestroyed(cell, worldPosition);
@@ -124,7 +134,7 @@ namespace Bomber.Gameplay
             wallObjects.Remove(cell);
             destructibleWalls.Remove(cell);
             walls.Remove(cell);
-            Destroy(wall);
+            DestroyObject(wall);
             CollectOpenCells();
             if (WallDestroyed != null)
             {
@@ -176,7 +186,7 @@ namespace Bomber.Gameplay
                     tile.transform.position = position + Vector3.down * 0.55f;
                     tile.transform.localScale = new Vector3(cellSize, 0.1f, cellSize);
                     Paint(tile, new Color(0.23f, 0.27f, 0.19f));
-                    Object.Destroy(tile.GetComponent<Collider>());
+                    DestroyComponent(tile.GetComponent<Collider>());
                 }
             }
         }
@@ -286,11 +296,70 @@ namespace Bomber.Gameplay
             }
         }
 
+        private void ClearGeneratedContent()
+        {
+            walls.Clear();
+            destructibleWalls.Clear();
+            crates.Clear();
+            bombs.Clear();
+            openCells.Clear();
+            crateObjects.Clear();
+            wallObjects.Clear();
+
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                DestroyObject(transform.GetChild(i).gameObject);
+            }
+        }
+
         private static void Paint(GameObject target, Color color)
         {
             Renderer renderer = target.GetComponent<Renderer>();
-            renderer.material = new Material(Shader.Find("Standard"));
-            renderer.material.color = color;
+            Material material = new Material(Shader.Find("Standard"));
+            material.color = color;
+
+            if (Application.isPlaying)
+            {
+                renderer.material = material;
+            }
+            else
+            {
+                renderer.sharedMaterial = material;
+            }
+        }
+
+        private static void DestroyComponent(Component component)
+        {
+            if (component == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Object.Destroy(component);
+            }
+            else
+            {
+                Object.DestroyImmediate(component);
+            }
+        }
+
+        private static void DestroyObject(GameObject target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Object.Destroy(target);
+            }
+            else
+            {
+                Object.DestroyImmediate(target);
+            }
         }
 
         private static void Shuffle(List<Vector2Int> cells)

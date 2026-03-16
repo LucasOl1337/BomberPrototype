@@ -33,7 +33,7 @@ namespace Bomber.Bootstrap
                 return;
             }
 
-            if (Object.FindObjectOfType<MatchBootstrap>() != null)
+            if (Object.FindFirstObjectByType<MatchBootstrap>() != null)
             {
                 return;
             }
