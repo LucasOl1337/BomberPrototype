@@ -24,8 +24,14 @@ namespace Bomber.Gameplay
 
         private static readonly Dictionary<string, Material> MaterialsByDirection = new Dictionary<string, Material>();
 
-        [SerializeField] private Vector3 visualOffset = new Vector3(0f, 0.9f, 0f);
-        [SerializeField] private Vector3 visualScale = new Vector3(1.7f, 1.9f, 1f);
+        [Header("Asset")]
+        [SerializeField] private string resourceFolder = "PixelLab/Player/rotations";
+
+        [Header("Layout")]
+        [SerializeField] private float visualHeight = 2.4f;
+        [SerializeField] private float widthMultiplier = 1f;
+        [SerializeField] private float groundOffset = 0.02f;
+        [SerializeField] private Vector3 localOffset = Vector3.zero;
 
         private Renderer actorRenderer;
         private Transform visualTransform;
@@ -141,6 +147,8 @@ namespace Bomber.Gameplay
             if (actorRenderer != null)
             {
                 actorRenderer.enabled = false;
+                actorRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                actorRenderer.receiveShadows = false;
             }
 
             if (visualTransform == null)
@@ -155,8 +163,7 @@ namespace Bomber.Gameplay
                 visualRenderer = quad.AddComponent<MeshRenderer>();
             }
 
-            visualTransform.localPosition = visualOffset;
-            visualTransform.localScale = visualScale;
+            ApplyVisualLayout(southMaterial.mainTexture as Texture2D);
             visualRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             visualRenderer.receiveShadows = false;
             visualRenderer.sharedMaterial = southMaterial;
@@ -176,8 +183,30 @@ namespace Bomber.Gameplay
                 return;
             }
 
+            ApplyVisualLayout(material.mainTexture as Texture2D);
             visualRenderer.sharedMaterial = material;
             currentDirection = direction;
+        }
+
+        private void ApplyVisualLayout(Texture2D texture)
+        {
+            if (visualTransform == null)
+            {
+                return;
+            }
+
+            float aspect = 1f;
+            if (texture != null && texture.height > 0)
+            {
+                aspect = (float)texture.width / texture.height;
+            }
+
+            float width = visualHeight * aspect * widthMultiplier;
+            visualTransform.localScale = new Vector3(width, visualHeight, 1f);
+            visualTransform.localPosition = new Vector3(
+                localOffset.x,
+                (visualHeight * 0.5f) + groundOffset + localOffset.y,
+                localOffset.z);
         }
 
         private static Mesh GetQuadMesh()
@@ -224,14 +253,15 @@ namespace Bomber.Gameplay
             return DirectionNames[index];
         }
 
-        private static Material GetMaterial(string direction)
+        private Material GetMaterial(string direction)
         {
-            if (MaterialsByDirection.TryGetValue(direction, out Material cached))
+            string cacheKey = resourceFolder + "::" + direction;
+            if (MaterialsByDirection.TryGetValue(cacheKey, out Material cached))
             {
                 return cached;
             }
 
-            Texture2D texture = Resources.Load<Texture2D>("PixelLab/Player/rotations/" + direction);
+            Texture2D texture = Resources.Load<Texture2D>(resourceFolder + "/" + direction);
             if (texture == null)
             {
                 return null;
@@ -250,7 +280,7 @@ namespace Bomber.Gameplay
 
             Material material = new Material(shader);
             material.mainTexture = texture;
-            MaterialsByDirection[direction] = material;
+            MaterialsByDirection[cacheKey] = material;
             return material;
         }
     }
